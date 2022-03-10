@@ -12,6 +12,7 @@ public class TupleTest extends SimpleDbTestBase {
     /**
      * Unit test for Tuple.getField() and Tuple.setField()
      */
+
     @Test public void modifyFields() {
         TupleDesc td = Utility.getTupleDesc(2);
 

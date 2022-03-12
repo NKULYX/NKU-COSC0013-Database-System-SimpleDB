@@ -60,6 +60,8 @@ public class Tuple implements Serializable {
 
 
 
+
+
     private LinkedList<Field> fields;
 
     /**

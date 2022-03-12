@@ -58,6 +58,8 @@ public class Tuple implements Serializable {
         this.recordId = rid;
     }
 
+
+
     private LinkedList<Field> fields;
 
     /**

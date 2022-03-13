@@ -18,12 +18,63 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Catalog {
 
+    private class Table{
+        private DbFile dbFile;
+        private String tableName;
+        private String primaryKeyField;
+        private int tableId;
+
+        public Table(DbFile dbFile, String tableName, String primaryKeyField) {
+            this.dbFile = dbFile;
+            this.tableName = tableName;
+            this.primaryKeyField = primaryKeyField;
+            this.tableId = dbFile.getId();
+        }
+
+        public DbFile getDbFile() {
+            return dbFile;
+        }
+
+        public void setDbFile(DbFile dbFile) {
+            this.dbFile = dbFile;
+        }
+
+        public String getTableName() {
+            return tableName;
+        }
+
+        public void setTableName(String tableName) {
+            this.tableName = tableName;
+        }
+
+        public String getPrimaryKeyField() {
+            return primaryKeyField;
+        }
+
+        public void setPrimaryKeyField(String primaryKeyField) {
+            this.primaryKeyField = primaryKeyField;
+        }
+
+        public int getTableId() {
+            return tableId;
+        }
+
+        public void setTableId(int tableId) {
+            this.tableId = tableId;
+        }
+    }
+
+    private LinkedList<Table> tableList;
+    private LinkedList<Integer> tableIdList;
+
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
+        tableList = new LinkedList<>();
+        tableIdList = new LinkedList<>();
     }
 
     /**
@@ -37,6 +88,29 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+        if(this.tableList == null){
+            this.tableList = new LinkedList<>();
+            this.tableIdList = new LinkedList<>();
+        }
+        for(int i = 0; i < this.tableList.size(); i++){
+            if(name==null){
+                if(this.tableList.get(i).getTableId()==file.getId()){
+                    this.tableList.set(i,new Table(file,name,pkeyField));
+                    this.tableIdList.set(i, file.getId());
+                }
+            }else {
+                if(name.equals(this.tableList.get(i).getTableName())){
+                    this.tableList.set(i,new Table(file,name,pkeyField));
+                    this.tableIdList.set(i, file.getId());
+                }
+                if(file.getId()==this.tableList.get(i).getTableId()){
+                    this.tableList.set(i,new Table(file,name,pkeyField));
+                    this.tableIdList.set(i, file.getId());
+                }
+            }
+        }
+        this.tableList.add(new Table(file,name,pkeyField));
+        this.tableIdList.add(file.getId());
     }
 
     public void addTable(DbFile file, String name) {
@@ -60,7 +134,15 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        if(name == null){
+            throw new NoSuchElementException();
+        }
+        for (Table table : this.tableList) {
+            if (name.equals(table.getTableName())) {
+                return table.getTableId();
+            }
+        }
+        throw new NoSuchElementException();
     }
 
     /**
@@ -71,7 +153,12 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        for (Table table : this.tableList) {
+            if (tableid==table.getTableId()) {
+                return table.getDbFile().getTupleDesc();
+            }
+        }
+        throw new NoSuchElementException();
     }
 
     /**
@@ -82,27 +169,47 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        for (Table table : this.tableList) {
+            if (tableid==table.getTableId()) {
+                return table.getDbFile();
+            }
+        }
+        throw new NoSuchElementException();
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
+        for (Table table : this.tableList) {
+            if (tableid==table.getTableId()) {
+                return table.getPrimaryKeyField();
+            }
+        }
         return null;
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        if(this.tableIdList==null){
+            return null;
+        }
+        return this.tableIdList.iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
+        for (Table table : this.tableList) {
+            if (id==table.getTableId()) {
+                return table.getTableName();
+            }
+        }
         return null;
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        this.tableList = new LinkedList<>();
+        this.tableIdList = new LinkedList<>();
     }
     
     /**
@@ -127,18 +234,18 @@ public class Catalog {
                 for (String e : els) {
                     String[] els2 = e.trim().split(" ");
                     names.add(els2[0].trim());
-                    if (els2[1].trim().toLowerCase().equals("int"))
+                    if (els2[1].trim().toLowerCase().equals("int")) {
                         types.add(Type.INT_TYPE);
-                    else if (els2[1].trim().toLowerCase().equals("string"))
+                    } else if (els2[1].trim().toLowerCase().equals("string")) {
                         types.add(Type.STRING_TYPE);
-                    else {
+                    } else {
                         System.out.println("Unknown type " + els2[1]);
                         System.exit(0);
                     }
                     if (els2.length == 3) {
-                        if (els2[2].trim().equals("pk"))
+                        if (els2[2].trim().equals("pk")) {
                             primaryKey = els2[0].trim();
-                        else {
+                        } else {
                             System.out.println("Unknown annotation " + els2[2]);
                             System.exit(0);
                         }
@@ -159,5 +266,6 @@ public class Catalog {
             System.exit(0);
         }
     }
+
 }
 

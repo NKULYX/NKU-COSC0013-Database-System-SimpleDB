@@ -2,6 +2,9 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -26,6 +29,9 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    private int maxPageNum;
+    private HashMap<PageId,Page> pagesMap;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -33,6 +39,8 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        this.maxPageNum = numPages;
+        this.pagesMap = new HashMap<>();
     }
     
     public static int getPageSize() {
@@ -67,7 +75,17 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        if(pagesMap.containsKey(pid)){
+            return pagesMap.get(pid);
+        }
+        if(this.pagesMap.size()<maxPageNum){
+            DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page page = dbFile.readPage(pid);
+            this.pagesMap.put(pid, page);
+            return page;
+        } else {
+            throw new DbException("Eviction policy need to be implemented");
+        }
     }
 
     /**

@@ -148,7 +148,11 @@ public class TupleDesc implements Serializable {
      */
     public int getSize() {
         // some code goes here
-        return getFieldType(0).getLen() * filedTDItems.size();
+        int sum = 0;
+        for (int i = 0; i < filedTDItems.size(); i++) {
+            sum += getFieldType(i).getLen();
+        }
+        return sum;
     }
 
     /**

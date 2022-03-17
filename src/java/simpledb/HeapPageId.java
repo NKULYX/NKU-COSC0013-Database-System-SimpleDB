@@ -62,6 +62,9 @@ public class HeapPageId implements PageId {
     @Override
     public boolean equals(Object o) {
         // some code goes here
+        if(o==null){
+            return false;
+        }
         if(o.getClass()!=this.getClass()){
             return false;
         }else{

@@ -80,7 +80,7 @@ public class HeapFile implements DbFile {
          */
         try {
             raf = new RandomAccessFile(this.file,"r");
-            raf.seek((long) pid.getPageNumber() *BufferPool.getPageSize());
+            raf.seek((long) pid.getPageNumber() * BufferPool.getPageSize());
             raf.read(data);
             page = new HeapPage((HeapPageId) pid, data);
             raf.close();
@@ -136,10 +136,10 @@ public class HeapFile implements DbFile {
             @Override
             public void open() throws DbException, TransactionAbortedException {
                 this.currentPageIndex = 0;
-                /**
-                 * Get the first HeapPage in this DbFile
-                 * Must get the page though the BufferPool
-                 * in order to add the page into the BufferPool
+                /*
+                  Get the first HeapPage in this DbFile
+                  Must get the page though the BufferPool
+                  in order to add the page into the BufferPool
                  */
                 this.currentPage = (HeapPage)Database.getBufferPool().getPage(
                         tid,
@@ -157,12 +157,12 @@ public class HeapFile implements DbFile {
                 if(this.tupleIterator.hasNext()){
                     return true;
                 }else {
-                    /**
-                     * If the iterator in this page is at the end
-                     * then test if the file has a next page
-                     * If so change the currentPage to the next page and update tupleIterator
-                     * then return tupleIterator.hasNext()
-                     * otherwise return false
+                    /*
+                      If the iterator in this page is at the end
+                      then test if the file has a next page
+                      If so change the currentPage to the next page and update tupleIterator
+                      then return tupleIterator.hasNext()
+                      otherwise return false
                      */
                     if(this.currentPageIndex != numPages() -1){
                         this.currentPageIndex++;

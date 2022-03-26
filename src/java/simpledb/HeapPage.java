@@ -15,8 +15,8 @@ public class HeapPage implements Page {
 
     final HeapPageId pid;
     final TupleDesc td;
-    final byte header[];
-    final Tuple tuples[];
+    final byte[] header;
+    final Tuple[] tuples;
     final int numSlots;
 
     byte[] oldData;

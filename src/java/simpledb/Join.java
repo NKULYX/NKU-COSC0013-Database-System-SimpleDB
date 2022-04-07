@@ -128,13 +128,13 @@ public class Join extends Operator {
                     for(int i = 0;i < child1.getTupleDesc().numFields(); ++i){
                         newTuple.setField(i,currentTuple.getField(i));
                     }
-                    for(int i=child1.getTupleDesc().numFields();i<newTupleDesc.numFields();i++){
-                        newTuple.setField(i, tmp.getField(i));
+                    for(int i=0;i<tmp.getTupleDesc().numFields();i++){
+                        newTuple.setField(i + child1.getTupleDesc().numFields(), tmp.getField(i));
                     }
                     return newTuple;
                 }
             }
-            currentTuple = child1.next();
+            currentTuple = child1.hasNext()? child1.next():null;
             child2.rewind();
         }
         return null;

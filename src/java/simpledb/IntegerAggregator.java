@@ -193,8 +193,7 @@ public class IntegerAggregator implements Aggregator {
             } else {
                 int sum = groupResult.get(null);
                 int count = groupCount.get(null);
-                sum = sum * count + curData;
-                sum = sum / (count + 1);
+                sum = sum  + curData;
                 groupResult.put(null, sum);
                 groupCount.put(null, count + 1);
             }
@@ -205,8 +204,7 @@ public class IntegerAggregator implements Aggregator {
             if(groupResult.containsKey(field)) {
                 int sum = groupResult.get(field);
                 int count = groupCount.get(field);
-                sum = sum * count + curData;
-                sum = sum / (count + 1);
+                sum = sum  + curData;
                 groupResult.put(field, sum);
                 groupCount.put(field, count + 1);
             }
@@ -263,11 +261,13 @@ public class IntegerAggregator implements Aggregator {
             return new OpIterator() {
 
                 Iterator<Integer> aggregateIterator;
+                Iterator<Integer> countIterator;
                 TupleDesc tupleDesc;
 
                 @Override
                 public void open() throws DbException, TransactionAbortedException {
                     aggregateIterator = groupResult.values().iterator();
+                    countIterator = groupCount.values().iterator();
                     tupleDesc = new TupleDesc(new Type[]{Type.INT_TYPE});
                 }
 
@@ -286,7 +286,11 @@ public class IntegerAggregator implements Aggregator {
                     }
                     if(aggregateIterator.hasNext()) {
                         Tuple tuple = new Tuple(tupleDesc);
-                        tuple.setField(0, new IntField(aggregateIterator.next()));
+                        if(operator==Op.AVG) {
+                            tuple.setField(0, new IntField(aggregateIterator.next() / countIterator.next()));
+                        } else{
+                            tuple.setField(0, new IntField(aggregateIterator.next()));
+                        }
                         return tuple;
                     }
                     throw new NoSuchElementException();
@@ -316,13 +320,15 @@ public class IntegerAggregator implements Aggregator {
 
                 Iterator<Field> groupIterator;
                 Iterator<Integer> aggregateIterator;
+                Iterator<Integer> countIterator;
                 TupleDesc tupleDesc;
 
                 @Override
                 public void open() throws DbException, TransactionAbortedException {
                     groupIterator = groupResult.keySet().iterator();
                     aggregateIterator = groupResult.values().iterator();
-                    tupleDesc = new TupleDesc(new Type[]{groupByFieldType, Type.INT_TYPE}, new String[]{"groupby",operator.toString()});
+                    countIterator = groupCount.values().iterator();
+                    tupleDesc = new TupleDesc(new Type[]{groupByFieldType, Type.INT_TYPE});
                 }
 
                 @Override
@@ -341,7 +347,11 @@ public class IntegerAggregator implements Aggregator {
                     if(groupIterator.hasNext()) {
                         Tuple tuple = new Tuple(tupleDesc);
                         tuple.setField(0, groupIterator.next());
-                        tuple.setField(1, new IntField(aggregateIterator.next()));
+                        if(operator==Op.AVG) {
+                            tuple.setField(1, new IntField(aggregateIterator.next() / countIterator.next()));
+                        } else{
+                            tuple.setField(1, new IntField(aggregateIterator.next()));
+                        }
                         return tuple;
                     }
                     throw new NoSuchElementException();

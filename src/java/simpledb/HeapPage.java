@@ -245,6 +245,16 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        if(getNumEmptySlots() == numSlots){
+            throw new DbException("No such tuple");
+        }
+        for(int i = 0; i < tuples.length; i++){
+            if(tuples[i] == t){
+                markSlotUsed(i, false);
+                return ;
+            }
+        }
+        throw new DbException("No such tuple");
     }
 
     /**
@@ -257,7 +267,20 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        if(getNumEmptySlots() == 0){
+            throw new DbException("No empty slot");
+        }
+        for(int i = 0; i < numSlots; i++){
+            if(!isSlotUsed(i)){
+                tuples[i] = t;
+                t.setRecordId(new RecordId(this.pid, i));
+                markSlotUsed(i, true);
+                return ;
+            }
+        }
     }
+
+    private TransactionId lastTransactionId = null;
 
     /**
      * Marks this page as dirty/not dirty and record that transaction
@@ -266,6 +289,7 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
 	    // not necessary for lab1
+        this.lastTransactionId = dirty ? tid : null;
     }
 
     /**
@@ -274,7 +298,7 @@ public class HeapPage implements Page {
     public TransactionId isDirty() {
         // some code goes here
 	    // Not necessary for lab1
-        return null;      
+        return this.lastTransactionId;
     }
 
     /**
@@ -305,6 +329,17 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+        int ith = i/8;
+        int mod = i%8;
+        byte b = header[ith];
+        byte delta = (byte) (b - ((b>>mod)<<mod));
+        b = (byte) ((b >> (mod+1)) * 2 );
+        if(value){
+            b = (byte) (b+1);
+        }
+        b = (byte) (b<<(mod));
+        b += delta;
+        header[ith] = b;
     }
 
     /**

@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -151,6 +152,12 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> pages = dbFile.insertTuple(tid, t);
+        for(Page page: pages){
+            page.markDirty(true, tid);
+            pagesMap.put(page.getId(), page);
+        }
     }
 
     /**
@@ -166,10 +173,17 @@ public class BufferPool {
      * @param tid the transaction deleting the tuple.
      * @param t the tuple to delete
      */
-    public  void deleteTuple(TransactionId tid, Tuple t)
+    public void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        int tableId = t.getRecordId().getPageId().getTableId();
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> pages = dbFile.deleteTuple(tid, t);
+        for(Page page: pages){
+            page.markDirty(true, tid);
+            pagesMap.put(page.getId(), page);
+        }
     }
 
     /**

@@ -248,13 +248,13 @@ public class HeapPage implements Page {
         if(getNumEmptySlots() == numSlots){
             throw new DbException("No such tuple");
         }
-        for(int i = 0; i < tuples.length; i++){
-            if(tuples[i] == t){
-                markSlotUsed(i, false);
-                return ;
-            }
+        PageId pid = t.getRecordId().getPageId();
+        if(!pid.equals(this.pid)){
+            throw new DbException("No such tuple");
         }
-        throw new DbException("No such tuple");
+        int tid = t.getRecordId().getTupleNumber();
+        tuples[tid] = null;
+        markSlotUsed(tid, false);
     }
 
     /**

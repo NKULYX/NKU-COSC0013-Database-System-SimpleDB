@@ -17,7 +17,6 @@ public class HeapFile implements DbFile {
 
     private File file;
     private TupleDesc tupleDesc;
-    private int numPage;
 
     /**
      * Constructs a heap file backed by the specified file.
@@ -30,7 +29,6 @@ public class HeapFile implements DbFile {
         // some code goes here
         this.file = f;
         this.tupleDesc = td;
-        this.numPage = (int) (this.file.length()/BufferPool.getPageSize());
     }
 
     /**
@@ -109,7 +107,7 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-        return this.numPage;
+        return (int) (this.file.length()/BufferPool.getPageSize());
     }
 
     // see DbFile.java for javadocs
@@ -131,11 +129,10 @@ public class HeapFile implements DbFile {
         // if no page can be inserted into, create a new page and insert the tuple into it
         if(pages.size() == 0) {
             // create a new page
-            HeapPageId pid = new HeapPageId(this.getId(), numPage);
+            HeapPageId pid = new HeapPageId(this.getId(), numPages());
             HeapPage newPage = new HeapPage(pid, HeapPage.createEmptyPageData());
             // write the page to the disk
             writePage(newPage);
-            this.numPage++;
             // read the page from the buffer pool
             HeapPage heapPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
             // insert the tuple into the new page

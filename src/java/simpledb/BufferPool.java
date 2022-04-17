@@ -2,10 +2,7 @@ package simpledb;
 
 import java.io.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -31,7 +28,7 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     private int maxPageNum;
-    private HashMap<PageId,Page> pagesMap;
+    private ConcurrentHashMap<PageId,Page> pagesMap;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -41,7 +38,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.maxPageNum = numPages;
-        this.pagesMap = new HashMap<>();
+        this.pagesMap = new ConcurrentHashMap<>();
     }
     
     public static int getPageSize() {
@@ -79,14 +76,14 @@ public class BufferPool {
         if(pagesMap.containsKey(pid)){
             return pagesMap.get(pid);
         }
-        if(this.pagesMap.size()<maxPageNum){
-            DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
-            Page page = dbFile.readPage(pid);
-            this.pagesMap.put(pid, page);
-            return page;
-        } else {
-            throw new DbException("Eviction policy need to be implemented");
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        Page page = dbFile.readPage(pid);
+        if(this.pagesMap.size()>=maxPageNum) {
+            evictPage();
         }
+//            throw new DbException("Eviction policy need to be implemented");
+        this.pagesMap.put(pid, page);
+        return page;
     }
 
     /**
@@ -194,6 +191,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
+        for(Page page: pagesMap.values()){
+            flushPage(page.getId());
+        }
 
     }
 
@@ -208,31 +208,52 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        pagesMap.remove(pid);
     }
 
     /**
      * Flushes a certain page to disk
      * @param pid an ID indicating the page to flush
      */
-    private synchronized  void flushPage(PageId pid) throws IOException {
+    private synchronized void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        Page page = pagesMap.get(pid);
+        if(page.isDirty() != null){
+            Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(page);
+            page.markDirty(false, null);
+        }
     }
 
     /** Write all pages of the specified transaction to disk.
      */
-    public synchronized  void flushPages(TransactionId tid) throws IOException {
+    public synchronized void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+
     }
 
     /**
      * Discards a page from the buffer pool.
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
-    private synchronized  void evictPage() throws DbException {
+    private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        for(Page page: pagesMap.values()){
+            if(page.isDirty() == null){
+                pagesMap.remove(page.getId());
+            }
+        }
+//        Enumeration<PageId> keys = pagesMap.keys();
+//        while(keys.hasMoreElements()) {
+//            PageId pid = keys.nextElement();
+//            Page page = pagesMap.get(pid);
+//            // if the page is dirty, flush it to disk
+//            if(page.isDirty()!=null){
+//                pagesMap.remove(pid);
+//            }
+//        }
     }
 
 }

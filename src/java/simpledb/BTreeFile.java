@@ -195,7 +195,55 @@ public class BTreeFile implements DbFile {
 			Field f) 
 					throws DbException, TransactionAbortedException {
 		// some code goes here
-        return null;
+		// get the current page
+		Page page = getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+		/*
+		  check if the current page is a BTreedLeafPage
+		  if so return it
+		 */
+		if(((BTreePageId)page.getId()).pgcateg() == BTreePageId.LEAF) {
+			return (BTreeLeafPage) Database.getBufferPool().getPage(tid, page.getId(), perm);
+		}
+		/*
+		  the current page is a BTreeInternalPage
+		 */
+		else{
+			Iterator<BTreeEntry> iterator = ((BTreeInternalPage) page).iterator();
+			/*
+			  check if the filed is null
+			  if it is, return the left most leaf page
+			 */
+			if(f == null) {
+				BTreePageId leftChild = iterator.next().getLeftChild();
+				return findLeafPage(tid, dirtypages, leftChild, Permissions.READ_ONLY, f);
+			}
+			/*
+			  the field is not null
+			  iterate through the entries in the page
+			  find that if the field is less than or equal to the current entry, return the left child of the entry
+			 */
+			else{
+				BTreeEntry entry = iterator.next();
+				while(true) {
+					if(entry.getKey().compare(Op.GREATER_THAN_OR_EQ,f)) {
+						return findLeafPage(tid, dirtypages, entry.getLeftChild(), Permissions.READ_ONLY, f);
+					}
+					/*
+					if the field is greater than the current entry, check if there is a next entry
+					if there is, set the current entry to the next entry
+					 */
+					if(iterator.hasNext()) {
+						entry = iterator.next();
+					}
+					/*
+					  if the field is greater than the last entry, return the right child of the last entry
+					*/
+					else {
+						return findLeafPage(tid, dirtypages, entry.getRightChild(), Permissions.READ_ONLY, f);
+					}
+				}
+			}
+		}
 	}
 	
 	/**

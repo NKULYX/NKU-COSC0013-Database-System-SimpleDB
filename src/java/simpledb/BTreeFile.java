@@ -295,8 +295,61 @@ public class BTreeFile implements DbFile {
 		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
 		// the sibling pointers of all the affected leaf pages.  Return the page into which a 
 		// tuple with the given key field should be inserted.
-        return null;
-		
+
+		/*
+		attention that we don't need to operate the dirtypages
+		we just need to fetch the page with the provided function getPage() using the permission READ_WRITE
+		int the function the page we get with the permission READ_WRITE will be put into the dirtypages
+		 */
+
+		BTreeLeafPage newPage = (BTreeLeafPage) getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
+		Iterator<Tuple> iterator = page.iterator();
+		int numTuples = page.getNumTuples();
+		int mid = numTuples / 2;
+		int index = 0;
+		/*
+		copy the tuples in the right part into the new page
+		and delete the tuples in the right part from the current page
+		 */
+		while (iterator.hasNext()) {
+			Tuple currentTuple = iterator.next();
+			if(index >= mid){
+				/*
+				attention that we must delete the tuple first and then insert it into the new page
+				because in the deleteTuple() the RecordId is set to null
+				and then in the insertTuple() the RecordId is set to the new page
+				 */
+				page.deleteTuple(currentTuple);
+				newPage.insertTuple(currentTuple);
+			}
+			index++;
+		}
+		/*
+		update the right sibling pointer of the current page
+		check if the current page has the rightmost page
+		 */
+		if(page.getRightSiblingId() != null){
+			BTreeLeafPage rightSibling = (BTreeLeafPage) getPage(tid, dirtypages, page.getRightSiblingId(), Permissions.READ_WRITE);
+			rightSibling.setLeftSiblingId(newPage.getId());
+		}
+		newPage.setRightSiblingId(page.getRightSiblingId());
+		page.setRightSiblingId(newPage.getId());
+		newPage.setLeftSiblingId(page.getId());
+		/*
+		update the parent pointer
+		 */
+		BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), field);
+		Tuple firstTupleInRight = newPage.iterator().next();
+		parent.insertEntry(new BTreeEntry(firstTupleInRight.getField(keyField),page.getId(), newPage.getId()));
+		newPage.setParentId(parent.getId());
+		/*
+		check which page to return
+		 */
+		if(firstTupleInRight.getField(keyField).compare(Op.GREATER_THAN_OR_EQ, field)){
+			return page;
+		} else{
+			return newPage;
+		}
 	}
 	
 	/**
@@ -333,7 +386,52 @@ public class BTreeFile implements DbFile {
 		// the parent pointers of all the children moving to the new page.  updateParentPointers()
 		// will be useful here.  Return the page into which an entry with the given key field
 		// should be inserted.
-		return null;
+
+		BTreeInternalPage newPage = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
+		Iterator<BTreeEntry> iterator = page.iterator();
+		int numTuples = page.getNumEntries();
+		int mid = numTuples / 2;
+		int index = 0;
+
+		/*
+		copy the entries in the right part into the new page
+		and delete the entries and rightChild in the right part from the current page
+		 */
+		while (iterator.hasNext()) {
+			BTreeEntry entry = iterator.next();
+			entry.getLeftChild();
+			if (index >= mid) {
+				page.deleteKeyAndRightChild(entry);
+				newPage.insertEntry(entry);
+			}
+			index++;
+		}
+
+		/*
+		push the first key in the new page into the parent page
+		 */
+		BTreeEntry firstEntryInRight = newPage.iterator().next();
+		BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), field);
+		newPage.deleteKeyAndLeftChild(firstEntryInRight);
+		firstEntryInRight.setLeftChild(page.getId());
+		firstEntryInRight.setRightChild(newPage.getId());
+		parent.insertEntry(firstEntryInRight);
+
+		/*
+		update the parent pointers of the children in the new page and old page
+		 */
+		updateParentPointers(tid, dirtypages, newPage);
+		updateParentPointers(tid, dirtypages, page);
+		updateParentPointers(tid, dirtypages, parent);
+
+		/*
+		return the page into which the new entry should be inserted
+		 */
+		if(firstEntryInRight.getKey().compare(Op.GREATER_THAN_OR_EQ, field)){
+			return page;
+		} else{
+			return newPage;
+		}
 	}
 	
 	/**

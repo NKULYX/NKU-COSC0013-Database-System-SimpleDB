@@ -248,6 +248,9 @@ public class HeapPage implements Page {
         if(getNumEmptySlots() == numSlots){
             throw new DbException("No such tuple");
         }
+        /*
+        first check if the tuple is in the page
+         */
         PageId pid = t.getRecordId().getPageId();
         if(!pid.equals(this.pid)){
             throw new DbException("No such tuple");
@@ -351,6 +354,9 @@ public class HeapPage implements Page {
         if(this.tuples == null){
             return null;
         }
+        /*
+        only add the tuples that are not null
+         */
         LinkedList<Tuple> tmp = new LinkedList<Tuple>();
         for(int i = 0; i < this.tuples.length; i++){
             if(isSlotUsed(i)){

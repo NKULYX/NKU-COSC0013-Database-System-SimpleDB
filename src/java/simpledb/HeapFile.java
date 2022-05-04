@@ -74,9 +74,9 @@ public class HeapFile implements DbFile {
         byte[] data = new byte[BufferPool.getPageSize()];
         HeapPage page = null;
         RandomAccessFile raf = null;
-        /**
-         * Get the file using RandomAccessFile
-         * in order to use seek to jump to the beginning of this page
+        /*
+         Get the file using RandomAccessFile
+         in order to use seek to jump to the beginning of this page
          */
         try {
             raf = new RandomAccessFile(this.file,"r");
@@ -107,6 +107,10 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
+        /*
+        attention that we need to get the length of the file every time the method is called
+        in order to get the right number of pages
+         */
         return (int) (this.file.length()/BufferPool.getPageSize());
     }
 
@@ -130,10 +134,11 @@ public class HeapFile implements DbFile {
         if(pages.size() == 0) {
             // create a new page
             HeapPageId pid = new HeapPageId(this.getId(), numPages());
+            // attention that when we call createEmptyPageData, the size of the file will change which will affect the number of pages
             HeapPage newPage = new HeapPage(pid, HeapPage.createEmptyPageData());
             // write the page to the disk
             writePage(newPage);
-            // read the page from the buffer pool
+            // read the page from the buffer pool, which will insert the new page into the buffer pool
             HeapPage heapPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
             // insert the tuple into the new page
             heapPage.insertTuple(t);

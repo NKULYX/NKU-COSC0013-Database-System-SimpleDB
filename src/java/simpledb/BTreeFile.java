@@ -281,7 +281,7 @@ public class BTreeFile implements DbFile {
 	 * @param f - the field to search for
 	 * @return the right-most leaf page possibly containing the key field f
 	 * */
-	private BTreeLeafPage ReversefindLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid,
+	private BTreeLeafPage findReverseLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid,
 											  Permissions perm, Field f)
 			throws DbException,TransactionAbortedException{
 
@@ -339,7 +339,7 @@ public class BTreeFile implements DbFile {
 	 * Convenience method to Reverse_find a leaf page when there is no dirtypages HashMap.
 	 *
 	 * Used by the BTreeFile iterator.
-	 * @see #ReversefindLeafPage(TransactionId, HashMap, BTreePageId, Permissions, Field)
+	 * @see #findReverseLeafPage(TransactionId, HashMap, BTreePageId, Permissions, Field)
 	 *
 	 * @param tid - the transaction id
 	 * @param pid - the current page being searched
@@ -348,10 +348,10 @@ public class BTreeFile implements DbFile {
 	 * @return the right-most leaf page possibly containing the key field f
 	 *
 	 */
-	BTreeLeafPage ReversefindLeafPage(TransactionId tid, BTreePageId pid, Permissions perm,
+	BTreeLeafPage findReverseLeafPage(TransactionId tid, BTreePageId pid, Permissions perm,
 									  Field f)
 			throws DbException, TransactionAbortedException {
-		return ReversefindLeafPage(tid, new HashMap<PageId, Page>(), pid, perm, f);
+		return findReverseLeafPage(tid, new HashMap<PageId, Page>(), pid, perm, f);
 	}
 
 	/**

@@ -265,6 +265,96 @@ public class BTreeFile implements DbFile {
 	}
 
 	/**
+	 * Fundamental function for class BTreeReverseSearchIterator
+	 *
+	 * Recursive function which finds and locks the leaf page in the B+ tree corresponding to
+	 * the right-most page possibly containing the key field f. It locks all internal
+	 * nodes along the path to the leaf node with READ_ONLY permission, and locks the
+	 * leaf node with permission perm.
+	 *
+	 * If f is null, it finds the right-most leaf page -- used for the iterator
+	 *
+	 * @param tid - the transaction id
+	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
+	 * @param pid - the current page being searched
+	 * @param perm - the permissions with which to lock the leaf page
+	 * @param f - the field to search for
+	 * @return the right-most leaf page possibly containing the key field f
+	 * */
+	private BTreeLeafPage ReversefindLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid,
+											  Permissions perm, Field f)
+			throws DbException,TransactionAbortedException{
+
+		Page page = getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+		/*
+		  check if the current page is a BTreedLeafPage
+		  if so return it
+		 */
+		if(((BTreePageId)page.getId()).pgcateg() == BTreePageId.LEAF) {
+			return (BTreeLeafPage) Database.getBufferPool().getPage(tid, page.getId(), perm);
+		}
+		/*
+		  the current page is a BTreeInternalPage
+		 */
+		else{
+			Iterator<BTreeEntry> iterator = ((BTreeInternalPage) page).reverseIterator();
+			/*
+			  check if the filed is null
+			  if it is, return the right most leaf page
+			 */
+			if(f == null) {
+				BTreePageId rightChild = iterator.next().getRightChild();
+				return findLeafPage(tid, dirtypages, rightChild, Permissions.READ_ONLY, f);
+			}
+			/*
+			  the field is not null
+			  iterate through the entries in the page
+			  find that if the field is greater than or equal to the current entry, return the right child of the entry
+			 */
+			else{
+				BTreeEntry entry = iterator.next();
+				while(true) {
+					if(entry.getKey().compare(Op.LESS_THAN_OR_EQ,f)) {
+						return findLeafPage(tid, dirtypages, entry.getRightChild(), Permissions.READ_ONLY, f);
+					}
+					/*
+					if the field is less than the current entry, check if there is a next entry
+					if there is, set the current entry to the next entry
+					 */
+					if(iterator.hasNext()) {
+						entry = iterator.next();
+					}
+					/*
+					  if the field is less than the last entry, return the left child of the last entry
+					*/
+					else {
+						return findLeafPage(tid, dirtypages, entry.getLeftChild(), Permissions.READ_ONLY, f);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Convenience method to Reverse_find a leaf page when there is no dirtypages HashMap.
+	 *
+	 * Used by the BTreeFile iterator.
+	 * @see #ReversefindLeafPage(TransactionId, HashMap, BTreePageId, Permissions, Field)
+	 *
+	 * @param tid - the transaction id
+	 * @param pid - the current page being searched
+	 * @param perm - the permissions with which to lock the leaf page
+	 * @param f - the field to search for
+	 * @return the right-most leaf page possibly containing the key field f
+	 *
+	 */
+	BTreeLeafPage ReversefindLeafPage(TransactionId tid, BTreePageId pid, Permissions perm,
+									  Field f)
+			throws DbException, TransactionAbortedException {
+		return ReversefindLeafPage(tid, new HashMap<PageId, Page>(), pid, perm, f);
+	}
+
+	/**
 	 * Split a leaf page to make room for new tuples and recursively split the parent node
 	 * as needed to accommodate a new entry. The new entry should have a key matching the key field
 	 * of the first tuple in the right-hand page (the key is "copied up"), and child pointers 

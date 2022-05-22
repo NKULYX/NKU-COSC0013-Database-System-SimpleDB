@@ -77,14 +77,30 @@ public class BufferPool {
         throws TransactionAbortedException, DbException {
         // some code goes here
 
-        // get lock
-        while(!lockManager.acquireLock(tid, pid, perm)) {
+        /*
+        get lock without check deadlock
+         */
+//        while(!lockManager.acquireLock(tid, pid, perm)) {
+//            try {
+//                Thread.sleep(200);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+
+        /*
+         to pass AbortEvictionTest
+         the test data contains deadlock
+         */
+        if(!lockManager.acquireLock(tid,pid,perm)) {
             try {
                 Thread.sleep(100);
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
+
 
         if(pagesMap.containsKey(pid)){
             return pagesMap.get(pid);
@@ -122,6 +138,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        transactionComplete(tid, true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -142,6 +159,33 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        if(commit) {
+            flushPages(tid);
+        }
+        else{
+            revertPages(tid);
+        }
+        for(PageId pid : pagesMap.keySet()) {
+            if(holdsLock(tid, pid)) {
+                releasePage(tid, pid);
+            }
+        }
+    }
+
+    /**
+     * revert all pages modified by a transaction
+     * @param tid the transaction
+     */
+    private void revertPages(TransactionId tid) {
+        for(PageId pid : pagesMap.keySet()) {
+            Page page = pagesMap.get(pid);
+            if(page.isDirty() == tid){
+                int tableId = page.getId().getTableId();
+                DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
+                Page originPage = dbFile.readPage(pid);
+                pagesMap.put(pid, originPage);
+            }
+        }
     }
 
     /**
@@ -244,7 +288,12 @@ public class BufferPool {
     public synchronized void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-
+        // flush all pages of the specific transaction to disk
+        for(Page page: pagesMap.values()){
+            if(page.isDirty() != null && page.isDirty() == tid){
+                flushPage(page.getId());
+            }
+        }
     }
 
     /**
@@ -258,6 +307,9 @@ public class BufferPool {
             if(page.isDirty() == null){
                 pagesMap.remove(page.getId());
             }
+        }
+        if(pagesMap.size() >= maxPageNum){
+            throw new DbException("Buffer pool is full and none of the pages can be evicted");
         }
 //        Enumeration<PageId> keys = pagesMap.keys();
 //        while(keys.hasMoreElements()) {

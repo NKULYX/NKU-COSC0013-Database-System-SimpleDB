@@ -30,6 +30,8 @@ public class BufferPool {
     private int maxPageNum;
     private ConcurrentHashMap<PageId,Page> pagesMap;
 
+    private LockManager lockManager;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -39,6 +41,7 @@ public class BufferPool {
         // some code goes here
         this.maxPageNum = numPages;
         this.pagesMap = new ConcurrentHashMap<>();
+        lockManager = new LockManager();
     }
     
     public static int getPageSize() {
@@ -73,6 +76,16 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+
+        // get lock
+        while(!lockManager.acquireLock(tid, pid, perm)) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         if(pagesMap.containsKey(pid)){
             return pagesMap.get(pid);
         }
@@ -98,6 +111,7 @@ public class BufferPool {
     public void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        lockManager.releasePage(tid, pid);
     }
 
     /**
@@ -114,7 +128,7 @@ public class BufferPool {
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return lockManager.getLock(tid, p) != null;
     }
 
     /**

@@ -5,6 +5,8 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static java.lang.Thread.currentThread;
+
 /**
  * BufferPool manages the reading and writing of pages into memory from
  * disk. Access methods call into it to retrieve pages, and it fetches
@@ -13,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * The BufferPool is also responsible for locking;  when a transaction fetches
  * a page, BufferPool checks that the transaction has the appropriate
  * locks to read/write the page.
- * 
+ *
  * @Threadsafe, all fields are final
  */
 public class BufferPool {
@@ -21,7 +23,7 @@ public class BufferPool {
     private static final int DEFAULT_PAGE_SIZE = 4096;
 
     private static int pageSize = DEFAULT_PAGE_SIZE;
-    
+
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
@@ -40,19 +42,19 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.maxPageNum = numPages;
-        this.pagesMap = new ConcurrentHashMap<>();
+        pagesMap = new ConcurrentHashMap<>();
         lockManager = new LockManager();
     }
-    
+
     public static int getPageSize() {
       return pageSize;
     }
-    
+
     // THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
     public static void setPageSize(int pageSize) {
     	BufferPool.pageSize = pageSize;
     }
-    
+
     // THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
     public static void resetPageSize() {
     	BufferPool.pageSize = DEFAULT_PAGE_SIZE;
@@ -80,27 +82,48 @@ public class BufferPool {
         /*
         get lock without check deadlock
          */
-//        while(!lockManager.acquireLock(tid, pid, perm)) {
+        while(!lockManager.acquireLock(tid, pid, perm)) {
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            if (lockManager.checkDeadLock(tid)) {
+                throw new TransactionAbortedException();
+            }
+        }
+
+
+//        boolean is_acquired = lockManager.acquireLock(tid,pid,perm);
+//        Long begin=System.currentTimeMillis();
+//        System.out.println(System.currentTimeMillis()+"begin"+currentThread().getName());
+//        while(!is_acquired) {
+//            Long end=System.currentTimeMillis();
+//            System.out.println(System.currentTimeMillis()+"test"+currentThread().getName());
+//            if(end-begin>3000){
+//                throw new TransactionAbortedException();
+//            }
 //            try {
 //                Thread.sleep(200);
-//            } catch (InterruptedException e) {
+//            }
+//            catch (InterruptedException e) {
 //                e.printStackTrace();
 //            }
+//            is_acquired=lockManager.acquireLock(tid,pid,perm);
 //        }
 
         /*
          to pass AbortEvictionTest
          the test data contains deadlock
          */
-        if(!lockManager.acquireLock(tid,pid,perm)) {
-            try {
-                Thread.sleep(100);
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
+//        if(!lockManager.acquireLock(tid,pid,perm)) {
+//            try {
+//                Thread.sleep(100);
+//            }
+//            catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
 
         if(pagesMap.containsKey(pid)){
             return pagesMap.get(pid);
@@ -111,7 +134,7 @@ public class BufferPool {
             evictPage();
         }
 //            throw new DbException("Eviction policy need to be implemented");
-        this.pagesMap.put(pid, page);
+        pagesMap.put(pid, page);
         return page;
     }
 
@@ -165,6 +188,7 @@ public class BufferPool {
         else{
             revertPages(tid);
         }
+        // release the pages that is locked by the
         for(PageId pid : pagesMap.keySet()) {
             if(holdsLock(tid, pid)) {
                 releasePage(tid, pid);
@@ -176,7 +200,7 @@ public class BufferPool {
      * revert all pages modified by a transaction
      * @param tid the transaction
      */
-    private void revertPages(TransactionId tid) {
+    private synchronized void revertPages(TransactionId tid) {
         for(PageId pid : pagesMap.keySet()) {
             Page page = pagesMap.get(pid);
             if(page.isDirty() == tid){
@@ -190,14 +214,14 @@ public class BufferPool {
 
     /**
      * Add a tuple to the specified table on behalf of transaction tid.  Will
-     * acquire a write lock on the page the tuple is added to and any other 
-     * pages that are updated (Lock acquisition is not needed for lab2). 
+     * acquire a write lock on the page the tuple is added to and any other
+     * pages that are updated (Lock acquisition is not needed for lab2).
      * May block if the lock(s) cannot be acquired.
-     * 
+     *
      * Marks any pages that were dirtied by the operation as dirty by calling
-     * their markDirty bit, and adds versions of any pages that have 
-     * been dirtied to the cache (replacing any existing versions of those pages) so 
-     * that future requests see up-to-date pages. 
+     * their markDirty bit, and adds versions of any pages that have
+     * been dirtied to the cache (replacing any existing versions of those pages) so
+     * that future requests see up-to-date pages.
      *
      * @param tid the transaction adding the tuple
      * @param tableId the table to add the tuple to
@@ -221,9 +245,9 @@ public class BufferPool {
      * other pages that are updated. May block if the lock(s) cannot be acquired.
      *
      * Marks any pages that were dirtied by the operation as dirty by calling
-     * their markDirty bit, and adds versions of any pages that have 
-     * been dirtied to the cache (replacing any existing versions of those pages) so 
-     * that future requests see up-to-date pages. 
+     * their markDirty bit, and adds versions of any pages that have
+     * been dirtied to the cache (replacing any existing versions of those pages) so
+     * that future requests see up-to-date pages.
      *
      * @param tid the transaction deleting the tuple.
      * @param t the tuple to delete
@@ -259,7 +283,7 @@ public class BufferPool {
         Needed by the recovery manager to ensure that the
         buffer pool doesn't keep a rolled back page in its
         cache.
-        
+
         Also used by B+ tree files to ensure that deleted pages
         are removed from the cache so they can be reused safely
     */
@@ -303,14 +327,14 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        for(Page page: pagesMap.values()){
-            if(page.isDirty() == null){
-                pagesMap.remove(page.getId());
-            }
-        }
-        if(pagesMap.size() >= maxPageNum){
-            throw new DbException("Buffer pool is full and none of the pages can be evicted");
-        }
+//        for(Page page: pagesMap.values()){
+//            if(page.isDirty() == null){
+//                pagesMap.remove(page.getId());
+//            }
+//        }
+//        if(pagesMap.size() >= maxPageNum){
+//            throw new DbException("Buffer pool is full and none of the pages can be evicted");
+//        }
 //        Enumeration<PageId> keys = pagesMap.keys();
 //        while(keys.hasMoreElements()) {
 //            PageId pid = keys.nextElement();
@@ -320,6 +344,19 @@ public class BufferPool {
 //                pagesMap.remove(pid);
 //            }
 //        }
+        Page to_test_page=null;
+        PageId to_remove_hashcode=null;
+        for(PageId it:pagesMap.keySet()) {
+            to_test_page = pagesMap.get(it);
+            if (to_test_page.isDirty() != null) {//HeapPage的isDirty()如果是dirty会返回TransactionId
+                to_test_page=null;
+                continue;
+            }
+            to_remove_hashcode=it;
+            break;
+        }
+        if(to_test_page==null) throw new DbException("there are all dirty page");
+        pagesMap.remove(to_remove_hashcode);
     }
 
 }

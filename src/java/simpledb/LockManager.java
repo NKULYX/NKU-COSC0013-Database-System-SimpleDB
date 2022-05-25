@@ -2,7 +2,10 @@ package simpledb;
 
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * @author TTATT
@@ -250,6 +253,12 @@ public class LockManager {
         }
     }
 
+    /**
+     * get the lock of the specific transaction on the specific page
+     * @param tid transaction id
+     * @param pid page id
+     * @return
+     */
     public synchronized Lock getLock(TransactionId tid, PageId pid){
         LinkedList<Lock> lockList = pageLocks.get(pid);
         if(lockList==null || lockList.size() == 0){
@@ -262,4 +271,75 @@ public class LockManager {
         }
         return null;
     }
+
+    public synchronized boolean checkDeadLock(TransactionId tid){
+        Set<TransactionId> diverseid=new HashSet<>();
+        Queue<TransactionId> que=new ConcurrentLinkedQueue<>();
+        que.add(tid);
+
+        while(que.size()>0){
+            TransactionId remove_tid=que.remove();
+            if(diverseid.contains(remove_tid)) {
+                continue;
+            }
+            diverseid.add(remove_tid);
+            Set<TransactionId> now_set=dependenciesSet.get(remove_tid);
+            if(now_set==null) {
+                continue;
+            }
+            for(TransactionId now_tid:now_set){
+                que.add(now_tid);
+            }
+        }
+
+        ConcurrentHashMap<TransactionId,Integer> now_rudu=new ConcurrentHashMap<>();
+        for(TransactionId now_tid:diverseid){
+            now_rudu.put(now_tid,0);
+        }
+        for(TransactionId now_tid:diverseid){
+            Set<TransactionId> now_set=dependenciesSet.get(now_tid);
+            if(now_set==null) {
+                continue;
+            }
+            for(TransactionId now2_tid:now_set){
+                Integer temp = now_rudu.get(now2_tid);
+                temp++;
+                now_rudu.put(now2_tid,temp);
+            }
+        }
+
+        while(true){
+            int cnt=0;
+            for(TransactionId now_tid:diverseid){
+                if(now_rudu.get(now_tid)==null) {
+                    continue;
+                }
+                if(now_rudu.get(now_tid)==0){
+                    Set<TransactionId> now_set=dependenciesSet.get(now_tid);
+                    if(now_set==null) {
+                        continue;
+                    }
+                    for(TransactionId now2_tid:now_set){
+                        Integer temp = now_rudu.get(now2_tid);
+                        if(temp==null) {
+                            continue;
+                        }
+                        temp--;
+                        now_rudu.put(now2_tid,temp);
+                    }
+                    now_rudu.remove(now_tid);
+                    cnt++;
+                }
+            }
+            if(cnt==0) {
+                break;
+            }
+        }
+
+        if(now_rudu.size()==0) {
+            return false;
+        }
+        return true;
+    }
+
 }

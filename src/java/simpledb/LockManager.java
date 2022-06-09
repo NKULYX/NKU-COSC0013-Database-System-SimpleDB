@@ -86,7 +86,7 @@ public class LockManager {
             return true;
         }
         else{
-            addLock(tid, pid, Permissions.READ_WRITE);
+            addLock(tid, pid, Permissions.READ_ONLY);
             return true;
         }
     }
@@ -105,6 +105,15 @@ public class LockManager {
             lockList = new LinkedList<Lock>();
         }
         if(lockList.size() > 0){
+            if(lockList.size() == 1){
+                if(lockList.getFirst().getLockType().equals(Lock.SHARED_LOCK)){
+                    if(lockList.getFirst().getTid().equals(tid)){
+                        lockList.removeFirst();
+                        addLock(tid,pid, Permissions.READ_WRITE);
+                        return true;
+                    }
+                }
+            }
              /*
             There are  cases
             1. there is no EXCLUSIVE_LOCK in the list or there is an EXCLUSIVE_LOCK belongs to other transaction
@@ -219,61 +228,59 @@ public class LockManager {
     }
 
     public synchronized boolean checkDeadLock(TransactionId tid){
-        Set<TransactionId> diverseid=new HashSet<>();
+        Set<TransactionId> diverseId=new HashSet<>();
         Queue<TransactionId> que=new ConcurrentLinkedQueue<>();
         que.add(tid);
 
         while(que.size()>0){
-            TransactionId remove_tid=que.remove();
-            if(diverseid.contains(remove_tid)) {
+            TransactionId removeTid=que.remove();
+            if(diverseId.contains(removeTid)) {
                 continue;
             }
-            diverseid.add(remove_tid);
-            Set<TransactionId> now_set=dependenciesSet.get(remove_tid);
-            if(now_set==null) {
+            diverseId.add(removeTid);
+            Set<TransactionId> nowSet=dependenciesSet.get(removeTid);
+            if(nowSet==null) {
                 continue;
             }
-            for(TransactionId now_tid:now_set){
-                que.add(now_tid);
-            }
+            que.addAll(nowSet);
         }
 
-        ConcurrentHashMap<TransactionId,Integer> now_rudu=new ConcurrentHashMap<>();
-        for(TransactionId now_tid:diverseid){
-            now_rudu.put(now_tid,0);
+        ConcurrentHashMap<TransactionId,Integer> nowInDegree=new ConcurrentHashMap<>();
+        for(TransactionId nowTid:diverseId){
+            nowInDegree.put(nowTid,0);
         }
-        for(TransactionId now_tid:diverseid){
-            Set<TransactionId> now_set=dependenciesSet.get(now_tid);
-            if(now_set==null) {
+        for(TransactionId nowTid:diverseId){
+            Set<TransactionId> nowSet=dependenciesSet.get(nowTid);
+            if(nowSet==null) {
                 continue;
             }
-            for(TransactionId now2_tid:now_set){
-                Integer temp = now_rudu.get(now2_tid);
+            for(TransactionId tmpTid:nowSet){
+                Integer temp = nowInDegree.get(tmpTid);
                 temp++;
-                now_rudu.put(now2_tid,temp);
+                nowInDegree.put(tmpTid,temp);
             }
         }
 
         while(true){
             int cnt=0;
-            for(TransactionId now_tid:diverseid){
-                if(now_rudu.get(now_tid)==null) {
+            for(TransactionId nowTid:diverseId){
+                if(nowInDegree.get(nowTid)==null) {
                     continue;
                 }
-                if(now_rudu.get(now_tid)==0){
-                    Set<TransactionId> now_set=dependenciesSet.get(now_tid);
+                if(nowInDegree.get(nowTid)==0){
+                    Set<TransactionId> now_set=dependenciesSet.get(nowTid);
                     if(now_set==null) {
                         continue;
                     }
-                    for(TransactionId now2_tid:now_set){
-                        Integer temp = now_rudu.get(now2_tid);
+                    for(TransactionId tmpTid:now_set){
+                        Integer temp = nowInDegree.get(tmpTid);
                         if(temp==null) {
                             continue;
                         }
                         temp--;
-                        now_rudu.put(now2_tid,temp);
+                        nowInDegree.put(tmpTid,temp);
                     }
-                    now_rudu.remove(now_tid);
+                    nowInDegree.remove(nowTid);
                     cnt++;
                 }
             }
@@ -282,10 +289,7 @@ public class LockManager {
             }
         }
 
-        if(now_rudu.size()==0) {
-            return false;
-        }
-        return true;
+        return nowInDegree.size() != 0;
     }
 
 }

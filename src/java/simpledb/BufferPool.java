@@ -96,15 +96,15 @@ public class BufferPool {
 
 //        boolean is_acquired = lockManager.acquireLock(tid,pid,perm);
 //        Long begin=System.currentTimeMillis();
-//        System.out.println(System.currentTimeMillis()+"begin"+currentThread().getName());
+////        System.out.println(System.currentTimeMillis()+"begin"+currentThread().getName());
 //        while(!is_acquired) {
 //            Long end=System.currentTimeMillis();
-//            System.out.println(System.currentTimeMillis()+"test"+currentThread().getName());
-//            if(end-begin>3000){
+////            System.out.println(System.currentTimeMillis()+"test"+currentThread().getName());
+//            if(end-begin>1000){
 //                throw new TransactionAbortedException();
 //            }
 //            try {
-//                Thread.sleep(200);
+//                Thread.sleep(100);
 //            }
 //            catch (InterruptedException e) {
 //                e.printStackTrace();

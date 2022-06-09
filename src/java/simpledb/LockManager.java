@@ -56,70 +56,39 @@ public class LockManager {
         if(lockList==null){
             lockList = new LinkedList<Lock>();
         }
-        if(lockList.size() > 0){
-            // if the target page has only one lock
-            if(lockList.size() == 1){
-                // check if the lock belongs to the target transaction
-                if(lockList.getFirst().getTid().equals(tid)){
-//                    // improve the lock type of the target transaction upto the EXCLUSIVE_LOCK
-//                    lockList.removeFirst();
-//                    // add a EXCLUSIVE_LOCK lock to the locks list
-//                    addLock(tid,pid,Permissions.READ_WRITE);
-//                    return true;
-                    if(lockList.getFirst().getLockType().equals(Lock.SHARED_LOCK)){
-                        return true;
-                    }else{
-                        addLock(tid,pid,Permissions.READ_ONLY);
-                        return true;
-                    }
+        if(lockList.size() > 0) {
+            /*
+            There are 3 cases
+            1. there is no EXCLUSIVE_LOCK in the list
+                can get the lock successfully
+            2. there is an EXCLUSIVE_LOCK in the list and the lock belongs to the transaction
+                can the lock successfully
+            3. there is an EXCLUSIVE_LOCK in the list and the lock doesn't belong to the transaction
+                can not get the lcok
+             */
+            for (Lock lock : lockList) {
+                // check if there is an EXCLUSIVE_LOCK
+                if (lock.getLockType().equals(Lock.EXCLUSIVE_LOCK) && !lock.getTid().equals(tid)) {
+                    // if the EXCLUSIVE_LOCK belongs to other transaction
+                    addDependency(tid, lock.getTid());
+                    return false;
                 }
-                // the only lock belongs to other transaction
-                else{
-                    // if the lock type is SHARED_LOCK, then add a SHARED_LOCK lock to the locks list
-                    if(lockList.getFirst().getLockType().equals(Lock.SHARED_LOCK)){
-                        addLock(tid,pid,Permissions.READ_ONLY);
+                // the lock is a SHARED_LOCK
+                else {
+                    // if the SHARED_LOCK belongs to the target transaction
+                    if (lock.getTid().equals(tid)) {
                         return true;
-                    }
-                    // else the lock type is EXCLUSIVE_LOCK, then return false
-                    else{
-                        addDependency(tid, lockList.getFirst().getTid());
-                        return false;
                     }
                 }
             }
-            // else the target page has more than one lock
-            else{
-                /*
-                there are four cases:
-                1. two locks belongs to the target transaction one SHARED_LOCK and one EXCLUSIVE_LOCK
-                2. two locks belongs to other transaction one SHARED_LOCK and one EXCLUSIVE_LOCK
-                3. many locks and one SHARED_LOCK belongs to the target transaction
-                4. many locks and none belongs to the target transaction
-
-                In this section only need to check if the lock is an EXCLUSIVE_LOCK and belongs to other transaction
-                 */
-                for(Lock lock:lockList){
-                    // check the if the lock is an EXCLUSIVE_LOCK
-                    if(lock.getLockType().equals(Lock.EXCLUSIVE_LOCK)){
-                        // if the lock is an EXCLUSIVE_LOCK and belongs to other transaction
-                        if(!lock.getTid().equals(tid)){
-                            addDependency(tid, lock.getTid());
-                            return false;
-                        }else{
-                            return true;
-                        }
-                    }
-                    // the lock is a SHARED_LOCK
-                    else{
-                        if(lock.getTid().equals(tid)){
-                            return true;
-                        }
-                    }
-                }
-            }
+            // there is no lock belongs to the target transaction
+            addLock(tid, pid, Permissions.READ_ONLY);
+            return true;
         }
-        addLock(tid, pid, Permissions.READ_ONLY);
-        return true;
+        else{
+            addLock(tid, pid, Permissions.READ_WRITE);
+            return true;
+        }
     }
 
     /**
@@ -136,52 +105,29 @@ public class LockManager {
             lockList = new LinkedList<Lock>();
         }
         if(lockList.size() > 0){
-            // if the target page has only one lock
-            if(lockList.size() == 1){
-                // check if the lock belongs to the target transaction
-                if(lockList.getFirst().getTid().equals(tid)){
-                    // improve the lock type of the target transaction upto the EXCLUSIVE_LOCK
-//                    lockList.removeFirst();
-//                    // add a EXCLUSIVE_LOCK lock to the locks list
-//                    addLock(tid,pid,Permissions.READ_WRITE);
-//                    return true;
-                    if(lockList.getFirst().getLockType().equals(Lock.SHARED_LOCK)){
-                        return true;
-                    }else{
-                        addLock(tid,pid,Permissions.READ_ONLY);
-                        return true;
-                    }
-                }
-                // the only lock belongs to other transaction need to add the transaction to the dependenciesSet
-                else{
-                    addDependency(tid, lockList.getFirst().getTid());
-                    return false;
-                }
-            }
-            // else the target page has more than one lock
-            else{
-                /*
-                there are four cases:
-                1. two locks belongs to the target transaction one SHARED_LOCK and one EXCLUSIVE_LOCK
-                2. two locks belongs to other transaction one SHARED_LOCK and one EXCLUSIVE_LOCK
-                3. many locks and one SHARED_LOCK belongs to the target transaction
-                4. many locks and none belongs to the target transaction
-                 */
-                if(lockList.size() == 2) {
-                    for(Lock lock : lockList){
-                        // if there is an EXCLUSIVE_LOCK lock belongs to the transaction
-                        if(lock.getTid().equals(tid) && lock.getLockType().equals(Lock.EXCLUSIVE_LOCK)){
-                            return true;
-                        }
-                    }
-                    // add the dependency to the transaction
-                    addDependency(tid, lockList.getFirst().getTid());
-                }
-                for(Lock lock : lockList){
+             /*
+            There are  cases
+            1. there is no EXCLUSIVE_LOCK in the list or there is an EXCLUSIVE_LOCK belongs to other transaction
+                can not get the lock and add dependency to all the transactions
+            2. there is an EXCLUSIVE_LOCK in the list and the lock belongs to the transaction
+                can get the lock
+             */
+            for (Lock lock : lockList) {
+                // check if there is an EXCLUSIVE_LOCK
+                if(!lock.getTid().equals(tid)){
                     addDependency(tid, lock.getTid());
                 }
-                return false;
+                if (lock.getLockType().equals(Lock.EXCLUSIVE_LOCK)) {
+                    // if the EXCLUSIVE_LOCK belongs to other transaction
+                    if(!lock.getTid().equals(tid)){
+                        return false;
+                    }
+                    else{
+                        return true;
+                    }
+                }
             }
+            return false;
         }
         else{
             addLock(tid,pid, Permissions.READ_WRITE);

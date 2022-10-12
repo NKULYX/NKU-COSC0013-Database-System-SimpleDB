@@ -82,16 +82,16 @@ public class BufferPool {
         /*
         get lock without check deadlock
          */
-        while(!lockManager.acquireLock(tid, pid, perm)) {
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            if (lockManager.checkDeadLock(tid)) {
-                throw new TransactionAbortedException();
-            }
-        }
+//        while(!lockManager.acquireLock(tid, pid, perm)) {
+//            try {
+//                Thread.sleep(200);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//            if (lockManager.checkDeadLock(tid)) {
+//                throw new TransactionAbortedException();
+//            }
+//        }
 
 
 //        boolean is_acquired = lockManager.acquireLock(tid,pid,perm);
@@ -116,14 +116,14 @@ public class BufferPool {
          to pass AbortEvictionTest
          the test data contains deadlock
          */
-//        if(!lockManager.acquireLock(tid,pid,perm)) {
-//            try {
-//                Thread.sleep(100);
-//            }
-//            catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
+        if(!lockManager.acquireLock(tid,pid,perm)) {
+            try {
+                Thread.sleep(100);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 
         if(pagesMap.containsKey(pid)){
             return pagesMap.get(pid);

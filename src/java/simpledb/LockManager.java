@@ -1,9 +1,6 @@
 package simpledb;
 
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -115,7 +112,7 @@ public class LockManager {
                 }
             }
              /*
-            There are  cases
+            There are 2 cases
             1. there is no EXCLUSIVE_LOCK in the list or there is an EXCLUSIVE_LOCK belongs to other transaction
                 can not get the lock and add dependency to all the transactions
             2. there is an EXCLUSIVE_LOCK in the list and the lock belongs to the transaction
@@ -228,68 +225,27 @@ public class LockManager {
     }
 
     public synchronized boolean checkDeadLock(TransactionId tid){
-        Set<TransactionId> diverseId=new HashSet<>();
-        Queue<TransactionId> que=new ConcurrentLinkedQueue<>();
-        que.add(tid);
-
-        while(que.size()>0){
-            TransactionId removeTid=que.remove();
-            if(diverseId.contains(removeTid)) {
+        HashSet<TransactionId> markedTid = new HashSet<>();
+        ArrayList<TransactionId> tidList = new ArrayList<>();
+        tidList.add(tid);
+        markedTid.add(tid);
+        while(tidList.size() > 0){
+            TransactionId currentTid = tidList.remove(0);
+            HashSet<TransactionId> transactionIds = dependenciesSet.get(currentTid);
+            if(transactionIds==null){
                 continue;
             }
-            diverseId.add(removeTid);
-            Set<TransactionId> nowSet=dependenciesSet.get(removeTid);
-            if(nowSet==null) {
-                continue;
-            }
-            que.addAll(nowSet);
-        }
-
-        ConcurrentHashMap<TransactionId,Integer> nowInDegree=new ConcurrentHashMap<>();
-        for(TransactionId nowTid:diverseId){
-            nowInDegree.put(nowTid,0);
-        }
-        for(TransactionId nowTid:diverseId){
-            Set<TransactionId> nowSet=dependenciesSet.get(nowTid);
-            if(nowSet==null) {
-                continue;
-            }
-            for(TransactionId tmpTid:nowSet){
-                Integer temp = nowInDegree.get(tmpTid);
-                temp++;
-                nowInDegree.put(tmpTid,temp);
-            }
-        }
-
-        while(true){
-            int cnt=0;
-            for(TransactionId nowTid:diverseId){
-                if(nowInDegree.get(nowTid)==null) {
-                    continue;
+            for(TransactionId tmpTid : transactionIds){
+                if(markedTid.contains(tmpTid)){
+                    return true;
                 }
-                if(nowInDegree.get(nowTid)==0){
-                    Set<TransactionId> now_set=dependenciesSet.get(nowTid);
-                    if(now_set==null) {
-                        continue;
-                    }
-                    for(TransactionId tmpTid:now_set){
-                        Integer temp = nowInDegree.get(tmpTid);
-                        if(temp==null) {
-                            continue;
-                        }
-                        temp--;
-                        nowInDegree.put(tmpTid,temp);
-                    }
-                    nowInDegree.remove(nowTid);
-                    cnt++;
+                else{
+                    tidList.add(tmpTid);
+                    markedTid.add(tmpTid);
                 }
             }
-            if(cnt==0) {
-                break;
-            }
         }
-
-        return nowInDegree.size() != 0;
+        return false;
     }
 
 }
